@@ -16,3 +16,8 @@ __pycache__/
 # OS/editor clutter
 .DS_Store
 .vscode/settings.json
+
+git rm --cached .claude/settings.local.json
+
+
+.claude/settings.local.json
