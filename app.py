@@ -12,7 +12,7 @@ Run with: streamlit run app.py
 import pandas as pd
 import streamlit as st
 
-from calculate_risk_score import calculate_risk_score, WEIGHTS, CAPS, FS_STATUS_CONCERN
+from calculate_risk_score import calculate_risk_score, WEIGHTS, CAPS
 
 DATA_PATH = "synthetic_apprentice_risk_data.csv"
 
@@ -28,29 +28,26 @@ def load_and_score(path):
 def top_factors_for_row(row, top_n=3):
     """Returns the top_n factors driving this apprentice's score, as a
     list of (factor_label, contribution) tuples, sorted highest first."""
-    components = {
-        "Attendance": (100 - row["attendance_pct"]) / 100,
-        "OTJ deficit": max(row["otj_deficit_hours"], 0) / CAPS["otj_deficit_hours"],
-        "Assignments outstanding": row["assignments_outstanding_count"] / CAPS["assignments_outstanding_count"],
-        "Assignments late": row["assignments_late_count"] / CAPS["assignments_late_count"],
-        "Days since OneFile update": row["days_since_onefile_update"] / CAPS["days_since_onefile_update"],
-        "Days since last mentoring": row["days_since_last_mentoring"] / CAPS["days_since_last_mentoring"],
-        "Days since last progress review": row["days_since_last_progress_review"] / CAPS["days_since_last_progress_review"],
-        "FS Maths status": FS_STATUS_CONCERN[row["fs_maths_status"]],
-        "FS English status": FS_STATUS_CONCERN[row["fs_english_status"]],
+    # label -> (weight key, raw 0-1 component value)
+    factor_values = {
+        "Attendance": ("attendance_pct", (100 - row["attendance_pct"]) / 100),
+        "OTJ deficit": ("otj_deficit_hours", max(row["otj_deficit_hours"], 0) / CAPS["otj_deficit_hours"]),
+        "Assignments outstanding": ("assignments_outstanding_count", row["assignments_outstanding_count"] / CAPS["assignments_outstanding_count"]),
+        "Assignments late": ("assignments_late_count", row["assignments_late_count"] / CAPS["assignments_late_count"]),
+        "Days since OneFile update": ("days_since_onefile_update", row["days_since_onefile_update"] / CAPS["days_since_onefile_update"]),
+        "Days since last mentoring": ("days_since_last_mentoring", row["days_since_last_mentoring"] / CAPS["days_since_last_mentoring"]),
+        "Days since last progress review": ("days_since_last_progress_review", row["days_since_last_progress_review"] / CAPS["days_since_last_progress_review"]),
     }
-    weight_keys = list(WEIGHTS.keys())
-    label_to_key = dict(zip(components.keys(), weight_keys))
     contributions = {
-        label: WEIGHTS[label_to_key[label]] * min(max(value, 0), 1)
-        for label, value in components.items()
+        label: WEIGHTS[weight_key] * min(max(value, 0), 1)
+        for label, (weight_key, value) in factor_values.items()
     }
     ranked = sorted(contributions.items(), key=lambda x: x[1], reverse=True)
     return ranked[:top_n]
 
 
 st.title("Apprentice Risk Dashboard")
-st.caption("Proof of concept with synthetic apprentice data. Risk score is a weighted heuristic.")
+st.caption("Synthetic data - proof of concept. Risk score is a weighted heuristic, not a trained probability.")
 
 try:
     scored = load_and_score(DATA_PATH)
@@ -81,6 +78,10 @@ m2.metric("High risk", (filtered["risk_band"] == "High").sum())
 m3.metric("Medium risk", (filtered["risk_band"] == "Medium").sum())
 m4.metric("Low risk", (filtered["risk_band"] == "Low").sum())
 
+rule_flagged_count = filtered["hard_rule_triggered"].notna().sum()
+if rule_flagged_count:
+    st.caption(f"{rule_flagged_count} of these are High because of a hard rule (attendance or mentoring gap), not just the weighted score.")
+
 st.divider()
 
 # --- Table ---
@@ -90,13 +91,12 @@ display_cols = [
     "attendance_pct",
     "otj_deficit_hours",
     "days_since_last_mentoring",
-    "days_since_last_progress_review",
     "assignments_outstanding_count",
     "assignments_late_count",
     "risk_score",
     "risk_band",
+    "hard_rule_triggered",
 ]
-
 
 COLUMN_LABELS = {
     "synthetic_apprentice_id": "Apprentice ID",
@@ -104,16 +104,16 @@ COLUMN_LABELS = {
     "attendance_pct": "Attendance (%)",
     "otj_deficit_hours": "OTJ Deficit (hrs)",
     "days_since_last_mentoring": "Days Since Mentoring",
-    "days_since_last_progress_review": "Days Since Last Progress Review",
     "assignments_outstanding_count": "Assignments Outstanding",
     "assignments_late_count": "Assignments Late",
     "risk_score": "Risk Score",
     "risk_band": "Risk Band",
+    "hard_rule_triggered": "Hard Rule Triggered",
 }
 
 st.dataframe(
     filtered[display_cols].sort_values("risk_score", ascending=False).rename(columns=COLUMN_LABELS),
-    width="stretch",
+    use_container_width=True,
     hide_index=True,
 )
 
@@ -136,15 +136,17 @@ else:
         st.metric("Cohort", row["cohort"])
 
     with right:
-        st.markdown("**Top contributing factors:**")
+        if pd.notna(row["hard_rule_triggered"]):
+            st.warning(f"Flagged by hard rule: {row['hard_rule_triggered']}")
+        st.markdown("**Top contributing factors (weighted score):**")
         top_factors = top_factors_for_row(row, top_n=3)
         for label, contribution in top_factors:
             st.write(f"- {label} (contributes {contribution:.2f} to the score)")
 
     with st.expander("Full raw data for this apprentice"):
-        st.json(row.drop(labels=["risk_score", "risk_band"]).to_dict())
+        st.json(row.drop(labels=["risk_score", "risk_band", "hard_rule_triggered"]).to_dict())
 
 # --- Download ---
 st.divider()
-csv_bytes = filtered.to_csv(index=False).encode("utf-8").rename(columns=COLUMN_LABELS)
+csv_bytes = filtered.to_csv(index=False).encode("utf-8")
 st.download_button("Download filtered results as CSV", csv_bytes, "filtered_risk_results.csv", "text/csv")
