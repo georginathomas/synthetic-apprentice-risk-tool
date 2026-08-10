@@ -47,7 +47,7 @@ def top_factors_for_row(row, top_n=3):
 
 
 st.title("Apprentice Risk Dashboard")
-st.caption("Synthetic data - proof of concept. Risk score is a weighted heuristic, not a trained probability.")
+st.caption("Proof of concept with synthetic apprentice data. Risk score is a weighted heuristic.")
 
 try:
     scored = load_and_score(DATA_PATH)
@@ -78,9 +78,6 @@ m2.metric("High risk", (filtered["risk_band"] == "High").sum())
 m3.metric("Medium risk", (filtered["risk_band"] == "Medium").sum())
 m4.metric("Low risk", (filtered["risk_band"] == "Low").sum())
 
-rule_flagged_count = filtered["hard_rule_triggered"].notna().sum()
-if rule_flagged_count:
-    st.caption(f"{rule_flagged_count} of these are High because of a hard rule (attendance or mentoring gap), not just the weighted score.")
 
 st.divider()
 
@@ -116,35 +113,6 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
 )
-
-st.divider()
-
-# --- Drill-down ---
-st.subheader("Why was someone flagged?")
-apprentice_options = filtered.sort_values("risk_score", ascending=False)["synthetic_apprentice_id"].tolist()
-
-if not apprentice_options:
-    st.info("No apprentices match the current filters.")
-else:
-    selected_id = st.selectbox("Select an apprentice", apprentice_options)
-    row = filtered[filtered["synthetic_apprentice_id"] == selected_id].iloc[0]
-
-    left, right = st.columns([1, 2])
-    with left:
-        st.metric("Risk score", f"{row['risk_score']:.2f}")
-        st.metric("Risk band", row["risk_band"])
-        st.metric("Cohort", row["cohort"])
-
-    with right:
-        if pd.notna(row["hard_rule_triggered"]):
-            st.warning(f"Flagged by hard rule: {row['hard_rule_triggered']}")
-        st.markdown("**Top contributing factors (weighted score):**")
-        top_factors = top_factors_for_row(row, top_n=3)
-        for label, contribution in top_factors:
-            st.write(f"- {label} (contributes {contribution:.2f} to the score)")
-
-    with st.expander("Full raw data for this apprentice"):
-        st.json(row.drop(labels=["risk_score", "risk_band", "hard_rule_triggered"]).to_dict())
 
 # --- Download ---
 st.divider()
