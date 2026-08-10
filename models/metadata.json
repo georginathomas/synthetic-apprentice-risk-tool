@@ -1,0 +1,24 @@
+{
+  "feature_columns": [
+    "attendance_pct",
+    "days_since_last_mentoring",
+    "days_since_last_progress_review",
+    "otj_deficit_hours",
+    "days_since_onefile_update",
+    "assignments_late_count",
+    "assignments_outstanding_count",
+    "fs_maths_status",
+    "fs_english_status",
+    "lldd_flag"
+  ],
+  "band_labels": [
+    "Low",
+    "Medium",
+    "High"
+  ],
+  "band_low_cut": 0.3,
+  "band_high_cut": 0.6,
+  "target": "true_underlying_risk",
+  "trained_on": "C:\\Users\\GeorginaThomas\\Documents\\Offline Work\\synthetic_apprentice_risk_tool\\synthetic_apprentice_risk_data.csv",
+  "n_rows": 180
+}
