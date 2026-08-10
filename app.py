@@ -90,14 +90,29 @@ display_cols = [
     "attendance_pct",
     "otj_deficit_hours",
     "days_since_last_mentoring",
+    "days_since_last_progress_review",
     "assignments_outstanding_count",
     "assignments_late_count",
     "risk_score",
     "risk_band",
 ]
 
+
+COLUMN_LABELS = {
+    "synthetic_apprentice_id": "Apprentice ID",
+    "cohort": "Cohort",
+    "attendance_pct": "Attendance (%)",
+    "otj_deficit_hours": "OTJ Deficit (hrs)",
+    "days_since_last_mentoring": "Days Since Mentoring",
+    "days_since_last_progress_review": "Days Since Last Progress Review",
+    "assignments_outstanding_count": "Assignments Outstanding",
+    "assignments_late_count": "Assignments Late",
+    "risk_score": "Risk Score",
+    "risk_band": "Risk Band",
+}
+
 st.dataframe(
-    filtered[display_cols].sort_values("risk_score", ascending=False),
+    filtered[display_cols].sort_values("risk_score", ascending=False).rename(columns=COLUMN_LABELS),
     width="stretch",
     hide_index=True,
 )
@@ -131,5 +146,5 @@ else:
 
 # --- Download ---
 st.divider()
-csv_bytes = filtered.to_csv(index=False).encode("utf-8")
+csv_bytes = filtered.to_csv(index=False).encode("utf-8").rename(columns=COLUMN_LABELS)
 st.download_button("Download filtered results as CSV", csv_bytes, "filtered_risk_results.csv", "text/csv")
