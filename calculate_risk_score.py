@@ -1,25 +1,10 @@
 """
 Apprentice risk scorer
 
-Applies your own weighted scoring formula to the raw synthetic feature
-CSV. This is intentionally separate from the data generator - the
-generator's own internal risk_score exists only to validate the fake
-data, and is never exported. This file is the real scorer you'll
-actually use and iterate on.
+Applies a weighted scoring formula to the raw synthetic feature
+CSV.
 
-Weights below come from your rank ordering (1 = most important), then
-revised to give otj_deficit_hours much more weight and the two
-assignment factors somewhat more weight, with everything else scaled
-down proportionally so the total still sums to 1:
-  otj_deficit_hours              0.350  (increased - was 0.200)
-  assignments_outstanding_count  0.190  (increased - was 0.156)
-  assignments_late_count         0.190  (increased - was 0.156)
-  attendance_pct                 0.098  (was 0.178)
-  days_since_onefile_update      0.061  (was 0.111)
-  days_since_last_mentoring      0.049  (was 0.089)
-  days_since_last_progress_review 0.037 (was 0.067)
-  fs_english_status              0.012  (was 0.022)
-  fs_maths_status                0.012  (was 0.022)
+Weights below come from a decided rank ordering (1 = most important) so the total sums to 1.
 """
 
 import numpy as np
@@ -38,21 +23,21 @@ WEIGHTS = {
 }
 
 # Caps used to scale each raw value to a 0-1 "concern" range before
-# weighting. These are starting assumptions, not fixed rules - adjust
-# based on what actually counts as concerning in your programme.
+# weighting.
 CAPS = {
-    "otj_deficit_hours": 50,       # 50+ hours deficit = max concern
+    "otj_deficit_hours": 30,       # 30+ hours deficit = max concern
     "assignments_outstanding_count": 5,
     "assignments_late_count": 5,
     "days_since_onefile_update": 30,      # a month with no timesheet update = max concern
-    "days_since_last_mentoring": 60,
-    "days_since_last_progress_review": 90,
+    "days_since_last_mentoring": 60,       # two months with no mentoring update = max concern
+    "days_since_last_progress_review": 90, # progress review overdue = max concern
 }
 
 # FS status -> concern value. Flat mapping for now: achieved and
 # not_required both mean no concern, in_progress is a fixed mid-level
-# concern regardless of how close someone is to a deadline. Revisit this
-# if you get access to FS target dates - it could scale instead of being flat.
+# concern regardless of how close someone is to a deadline.
+
+## TODO is FS even relevant?
 FS_STATUS_CONCERN = {
     "achieved": 0.0,
     "not_required": 0.0,
@@ -92,9 +77,7 @@ def calculate_risk_score(df, weights=None, caps=None):
     )
 
     df["risk_score"] = np.round(risk_score, 3)
-    # Starting thresholds - same as before, worth re-checking against
-    # your own sense of what counts as Medium vs High once you've run
-    # this against apprentices you already know the story of.
+    # Starting thresholds
     df["risk_band"] = pd.cut(
         df["risk_score"],
         bins=[-0.01, 0.3, 0.6, 1.01],
@@ -120,6 +103,8 @@ if __name__ == "__main__":
                 "cohort",
                 "attendance_pct",
                 "otj_deficit_hours",
+                "days_since_last_progress_review",
+                "days_since_last_mentoring",
                 "assignments_outstanding_count",
                 "assignments_late_count",
                 "risk_score",

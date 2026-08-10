@@ -50,7 +50,7 @@ def top_factors_for_row(row, top_n=3):
 
 
 st.title("Apprentice Risk Dashboard")
-st.caption("Synthetic data - proof of concept. Risk score is a weighted heuristic, not a trained probability.")
+st.caption("Proof of concept with synthetic apprentice data. Risk score is a weighted heuristic.")
 
 try:
     scored = load_and_score(DATA_PATH)
